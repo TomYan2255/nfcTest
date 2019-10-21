@@ -9,7 +9,7 @@ package com.coolbitx.nfc.utils;
 import java.math.BigInteger;
 
 import org.spongycastle.util.encoders.Hex;
-import static junit.framework.Assert.assertTrue;
+//import junit.framework.Assert.assertTrue;
 /**
  *
  * @author derek
@@ -46,7 +46,7 @@ public class HexUtil {
 
     public static String addZeroForNum(String str, int strLength) {
         if (str.length() > strLength) {
-            assertTrue("addZeroForNum",false);
+           // assertTrue("addZeroForNum",false);
         }
         while (str.length() < strLength) {
             str = "0" + str;

@@ -5,6 +5,10 @@
  */
 package com.coolbitx.nfc.utils;
 
+import android.util.Log;
+
+import com.coolbitx.nfc.utils.*;
+
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.security.AlgorithmParameters;
@@ -38,19 +42,22 @@ import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
+//import static javax.xml.bind.DatatypeConverter.parseHexBinary;
+//import static javax.xml.bind.DatatypeConverter.printHexBinary;
 import org.bitcoinj.core.ECKey;
 import org.bitcoinj.core.Sha256Hash;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.jcajce.provider.digest.Keccak;
 import org.bouncycastle.jcajce.provider.digest.SHA3;
 import org.spongycastle.util.encoders.Hex;
-import static junit.framework.Assert.assertTrue;
+
+
 /**
  *
  * @author liu
  */
 public class KeyUtil {
-    
+
 
     public static ECKey genECKey() {
         return new ECKey();
@@ -60,6 +67,7 @@ public class KeyUtil {
     }
 
     public static ECKey getECKey(String key) {
+
         return ECKey.fromPrivate(HexUtil.toByteArray(key));
     }
 
@@ -75,9 +83,10 @@ public class KeyUtil {
         return getPublicKey(getECKey(key));
     }
 
-    public static String getPublicKey(org.bitcoinj.core.ECKey eckey) {
+    public static String getPublicKey(ECKey eckey) {
+
         if (null == eckey) {
-            eckey = new org.bitcoinj.core.ECKey();
+            eckey = new ECKey();
         }
         return getPublicKey(eckey.getPubKeyPoint());
     }
@@ -100,6 +109,8 @@ public class KeyUtil {
 
     public static String getEcdhKey(String pubKey,String priKey){
         try{
+
+            Security.insertProviderAt(new org.spongycastle.jce.provider.BouncyCastleProvider(), 1);
             //Security.addProvider(new BouncyCastleProvider());
             AlgorithmParameters parameters = AlgorithmParameters.getInstance("EC");
             parameters.init(new ECGenParameterSpec("secp256k1"));
@@ -112,13 +123,14 @@ public class KeyUtil {
             KeyAgreement ka = KeyAgreement.getInstance("ECDH");
             ka.init(kf.generatePrivate(ecPri));
             ka.doPhase(kf.generatePublic(ecPub), true);
-            return  HexUtil.toHexString(ka.generateSecret(),32);
+            return HexUtil.toHexString(ka.generateSecret(),32);
+
         }catch(Exception e){
-            assertTrue("getEcdhKey",false);
-            return "Error!";
+           // assertTrue("getEcdhKey",false);
+            return "Error!" +e.toString();
         }
     }
-    
+
     public static String getCompressedPublicKey(String publicKey) {
         String prefix="04";
         int c=publicKey.charAt(129);
@@ -128,7 +140,7 @@ public class KeyUtil {
         else if(c=='0'||c=='2'||c=='4'||c=='6'||c=='8'||c=='A'||c=='C'||c=='E'||c=='a'||c=='c'||c=='e'){
             prefix="02";
         }else{
-            assertTrue("getCompressedPublicKey",false);
+           // assertTrue("getCompressedPublicKey",false);
         }
         return prefix + publicKey.substring(2,66);
     }
@@ -143,7 +155,7 @@ public class KeyUtil {
     public static String getChildPublicKey(String parentPublicKey,String chainCode,String index){
         org.bouncycastle.asn1.x9.X9ECParameters params = org.bouncycastle.asn1.x9.ECNamedCurveTable.getByName("secp256k1");
         org.bouncycastle.math.ec.ECCurve curve = params.getCurve();
-        
+
         String addend=HashUtil.HMAC2512(chainCode,  getCompressedPublicKey(parentPublicKey) + index);
         System.out.println("HMAC: " + addend);
         CommonUtil.assertLength("HMAC",addend,64);

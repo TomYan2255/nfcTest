@@ -40,7 +40,7 @@ import org.bitcoinj.core.ECKey;
 import org.spongycastle.util.encoders.Hex;
 
 import static com.coolbitx.nfc.utils.HexUtil.*;
-import static junit.framework.Assert.assertTrue;
+//import static junit.framework.Assert.assertTrue;
 
 /**
  *
@@ -60,7 +60,7 @@ public class CryptoUtil {
         String ciphertext = Hex.toHexString(cipher.doFinal(Hex.decode(plain)));
         return ciphertext;
         }catch(Exception e){
-            assertTrue("encryptAES",false);
+           // assertTrue("encryptAES",false);
             return "Error!";
         }
     }
@@ -76,7 +76,7 @@ public class CryptoUtil {
         String ciphertext = Hex.toHexString(cipher.doFinal(Hex.decode(plain)));
         return ciphertext;
         }catch(Exception e){
-            assertTrue("decryptAES",false);
+           // assertTrue("decryptAES",false);
             return "Error!";
         }
     }

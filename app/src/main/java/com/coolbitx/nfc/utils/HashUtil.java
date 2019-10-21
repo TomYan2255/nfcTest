@@ -17,7 +17,7 @@ import org.bouncycastle.jcajce.provider.digest.Keccak;
 import org.bouncycastle.jcajce.provider.digest.SHA3;
 import org.spongycastle.util.encoders.Hex;
 import static com.coolbitx.nfc.utils.HexUtil.*;
-import static junit.framework.Assert.assertTrue;
+//import static junit.framework.Assert.assertTrue;
 
 /**
  *
@@ -48,7 +48,7 @@ public class HashUtil {
         } catch (NoSuchAlgorithmException e) {
             System.out.println(e.getClass().getSimpleName() + e.toString());
         }
-        assertTrue("SHA Error",false);
+       // assertTrue("SHA Error",false);
         return null;
     }
 
@@ -62,7 +62,7 @@ public class HashUtil {
         } catch (NoSuchAlgorithmException e) {
             System.out.println(e.getClass().getSimpleName() + e.toString());
         }
-        assertTrue("SHA Error",false);
+       // assertTrue("SHA Error",false);
         return null;
     }
 
@@ -80,7 +80,7 @@ public class HashUtil {
         } catch (NoSuchAlgorithmException e) {
             System.out.println(e.getClass().getSimpleName() + e.toString());
         }
-        assertTrue("SHA Error",false);
+       // assertTrue("SHA Error",false);
         return null;
     }
 
@@ -115,7 +115,7 @@ public class HashUtil {
         HMAC(Hex.decode(key),0,key.length()/2,Hex.decode(data),0,data.length()/2,ret,0,MessageDigest.getInstance("SHA-512"));
         return HexUtil.toHexString(ret,64);
         }catch(Exception e){
-            assertTrue("HMAC2512",false);
+           // assertTrue("HMAC2512",false);
             return "error";
         }
     }
@@ -163,7 +163,7 @@ public class HashUtil {
 
         return hash.getDigestLength();
         }catch(Exception e){
-            assertTrue("HMAC",false);
+           // assertTrue("HMAC",false);
             return 0;
         }
     }

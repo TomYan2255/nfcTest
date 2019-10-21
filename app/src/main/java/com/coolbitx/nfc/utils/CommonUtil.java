@@ -15,7 +15,7 @@ import org.bitcoinj.core.ECKey;
 import org.bitcoinj.core.Sha256Hash;
 import static com.coolbitx.nfc.utils.HexUtil.*;
 
-import static junit.framework.Assert.assertTrue;
+//import static junit.framework.Assert.assertTrue;
 
 /**
  *
@@ -53,7 +53,7 @@ public class CommonUtil {
 //    }
 
     public static void assertLength(String message,String data,int byteLength){
-        assertTrue(message,data.length()==byteLength*2);
+        //assertTrue(message,data.length()==byteLength*2);
     }
     
 
