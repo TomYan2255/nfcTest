@@ -1,28 +1,16 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
 
 package com.coolbitx.nfc.utils;
 
 import java.math.BigInteger;
 
 import org.spongycastle.util.encoders.Hex;
-//import junit.framework.Assert.assertTrue;
 /**
  *
  * @author derek
  */
 public class HexUtil {
 
-    public static String getOriginalStringFromHexString(String str){
-        return new String(Hex.decode(str));
-    }
 
-    public static String toHexString(String stringData){
-        return toHexString(stringData.getBytes(),stringData.length());
-    }
     public static String toHexString(byte[] data,int byteLength){
         return addZeroForNum(Hex.toHexString(data),byteLength*2);
     }

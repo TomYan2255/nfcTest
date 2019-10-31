@@ -7,7 +7,6 @@ import android.content.IntentFilter;
 import android.nfc.NfcAdapter;
 import android.nfc.Tag;
 import android.nfc.tech.IsoDep;
-
 import android.support.multidex.MultiDex;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
@@ -32,7 +31,7 @@ import com.coolbitx.nfc.utils.KeyUtil;
 
 public class MainActivity extends AppCompatActivity implements Listener {
 
-    public static final String TAG = MainActivity.class.getSimpleName();
+    private static final String TAG = MainActivity.class.getSimpleName();
 
     private TextView txtResult;
     private EditText mEtBackupData;
@@ -41,9 +40,8 @@ public class MainActivity extends AppCompatActivity implements Listener {
     private Button mBtnRestore;
     private Button mBtReset;
     private IsoDep techHandle = null;
-    private NFCWriteFragment mNfcWriteFragment;
-    private NFCReadFragment mNfcReadFragment;
-
+    // private NFCWriteFragment mNfcWriteFragment;
+    // private NFCReadFragment mNfcReadFragment;
     private NfcAdapter mNfcAdapter;
     private Tag tag = null;
     protected static String secureKey = null;
@@ -51,8 +49,23 @@ public class MainActivity extends AppCompatActivity implements Listener {
     protected static final String GenuineMasterPublicKey_NonInstalled = "04e720c727290f3cde711a82bba2f102322ab88029b0ff5be5171ad2d0a1a26efcd3502aa473cea30db7bc237021d00fd8929123246a993dc9e76ca7ef7f456ade";
     protected static final String GenuineMasterChainCode_Test = "f5a0c5d9ffaee0230a98a1cc982117759c149a0c8af48635776135dae8f63ba4";
     protected static final String GenuineMasterPublicKey_Test = "0401e3a7de779276ef24b9d5617ba86ba46dc5a010be0ce7aaf65876402f6a53a5cf1fecab85703df92e9c43e12a49f33370761153216df8291b7aa2f1a775b086";
-    private Boolean useSecureChanel = true;
     private static final char[] HEX_ARRAY = "0123456789ABCDEF".toCharArray();
+
+
+    private interface Commands {
+        String BACKUP = "80320500";
+        String RESTORE = "80340000";
+        String RESET = "80360000";
+        String SECURE_CHANNEL = "80CE000041";
+    }
+
+    private interface ErrorCpde {
+        String SUCCESS = "9000";
+        String RESET_FIRST = "6330";
+        String NO_DATA = "6370";
+        String PING_CODE_NOT_MATCH = "6350";
+        String CARD_IS_LOCKed = "6390";
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -61,13 +74,6 @@ public class MainActivity extends AppCompatActivity implements Listener {
         initViews();
         initNFC();
     }
-
-    @Override
-    protected void attachBaseContext(Context base) {
-        super.attachBaseContext(base);
-        MultiDex.install(this);
-    }
-
 
     private void initViews() {
         mEtPinCode = (EditText) findViewById(R.id.pinCodeTxt);
@@ -85,15 +91,17 @@ public class MainActivity extends AppCompatActivity implements Listener {
         mNfcAdapter = NfcAdapter.getDefaultAdapter(this);
     }
 
-    public static String padLeft(String s, int len) {
-        return String.format("%1$" + len + "s", s).replace(" ", "0");
+    @Override
+    protected void attachBaseContext(Context base) {
+        super.attachBaseContext(base);
+        MultiDex.install(this);
     }
 
     private String getHash_Pin_Code() {
         return getSHA256StrJava(mEtPinCode.getText().toString());
     }
 
-    public static String getSHA256StrJava(String str) {
+    private static String getSHA256StrJava(String str) {
 
         String encodeStr = "";
         try {
@@ -106,21 +114,30 @@ public class MainActivity extends AppCompatActivity implements Listener {
         return encodeStr;
     }
 
+    private void showResult(String msg) {
+        txtResult.setText(msg);
+    }
+
     private void sendCmdWithSecureChannel(String apduHeader, String cmd) {
 
-        Log.e("'apduHeader'", apduHeader);
-        Log.e("'cmd'", cmd);
         try {
             String sessionAppPrivateKey = CommonUtil.hexRandom(32);
             String sessionAppPublicKey = KeyUtil.getPublicKey(sessionAppPrivateKey);
-            String command = "80CE000041";
+            String command = Commands.SECURE_CHANNEL;
             command = command + sessionAppPublicKey;
+            System.out.println("command:" + command);
             byte[] bytes = hexStringToByteArray(command);
             techHandle = IsoDep.get(tag);
             if (techHandle.isConnected()) techHandle.close();
             techHandle.connect();
             byte[] resultBytes = techHandle.transceive(bytes);
+
             String ret = byteArrayToHexStr(resultBytes);
+            System.out.println("result" + ret);
+            if (ret.length() == 4) {
+                showResult("error" + ret);
+                return;
+            }
             String installType = ret.substring(0, 4);
             int cardNameLength = HexUtil.toInt(ret.substring(4, 8));
             String cardNameHex = ret.substring(8, 8 + cardNameLength * 2);
@@ -145,6 +162,7 @@ public class MainActivity extends AppCompatActivity implements Listener {
             String GenuineChild1PublicKey = KeyUtil.getChildPublicKey(GenuineMasterPublicKey, GenuineMasterChainCode, cardNameHex);
             String GenuineChild1ChainCode = KeyUtil.getChildChainCode(GenuineMasterPublicKey, GenuineMasterChainCode, cardNameHex);
             String GenuineChild2PublicKey = KeyUtil.getChildPublicKey(GenuineChild1PublicKey, GenuineChild1ChainCode, nonceIndex);
+
             secureKey = KeyUtil.getEcdhKey(GenuineChild2PublicKey, sessionAppPrivateKey);
             String[] apduCommand = sendSecureInner(apduHeader, cmd);
             int blockNumber = apduCommand.length;
@@ -157,87 +175,78 @@ public class MainActivity extends AppCompatActivity implements Listener {
                 apduResult[i] = HexUtil.toHexString(resultByte, resultByte.length);
                 String result = byteArrayToHexStr(resultByte);
                 System.out.println("rtn:" + byteArrayToHexStr(resultByte));
+
                 if (result.length() == 4) {  //cmd
                     tmp = tmp + byteArrayToHexStr(resultByte);
                 } else {
-                    tmp = tmp + byteArrayToStr(hexStringToByteArray(resultSecureInner(apduResult[i])));
+                    String resultSN = resultSecureInner(apduResult[i]);
+                    if (resultSN.length() == 4) {
+                        tmp = tmp + resultSecureInner(apduResult[i]);
+
+                    } else {
+                        tmp = tmp + byteArrayToStr(hexStringToByteArray(resultSecureInner(apduResult[i])));
+
+                    }
                 }
             }
 
-            txtResult.setText("result:" + tmp);
+            switch (tmp) {
+                case ErrorCpde.SUCCESS: {
+                    tmp = "success";
+                    break;
+                }
+                case ErrorCpde.RESET_FIRST: {
+                    tmp = "must reset first!";
+                    break;
+                }
+                case ErrorCpde.NO_DATA: {
+                    tmp = "don't have data ";
+                    break;
+                }
+                case ErrorCpde.PING_CODE_NOT_MATCH: {
+                    tmp = "pinCode not match";
+                }
+                case ErrorCpde.CARD_IS_LOCKed: {
+                    tmp = "card is locked";
+                }
+            }
+
+            showResult("result:" + tmp);
 
 
         } catch (Exception ex) {
             Log.e("ex", ex.toString());
+            // showResult("error:" + ex.toString());
         } finally {
             try {
                 techHandle.close();
             } catch (Exception ex) {
-                Log.e("ex", ex.toString());
+                // showResult("error:" + ex.toString());
             }
 
         }
     }
 
     private void backup() {
-        String apduHeader = "80320500";
+        String apduHeader = Commands.BACKUP;  //max 255   05 tobyte
         String command = "";
         byte[] _data = mEtBackupData.getText().toString().getBytes();
         String hexData = bytesToHex(_data);
         String HashPinCode = getHash_Pin_Code();
-        int dataLength = HashPinCode.length() / 2 + hexData.length() / 2;
-        if (!useSecureChanel) {
-            command = command + padLeft(Integer.toHexString(dataLength), 2);
-        }
-
-        command = command + HashPinCode + hexData;
-        if (!useSecureChanel) {
-            sendCommand(command);
-        } else {
-            sendCmdWithSecureChannel(apduHeader, command);
-        }
-
-//        isWrite = true;
-//
-//        mNfcWriteFragment = (NFCWriteFragment) getFragmentManager().findFragmentByTag(NFCWriteFragment.TAG);
-//
-//        if (mNfcWriteFragment == null) {
-//
-//            mNfcWriteFragment = NFCWriteFragment.newInstance();
-//        }
-//        mNfcWriteFragment.show(getFragmentManager(),NFCWriteFragment.TAG);
-
+        command = HashPinCode + hexData;
+        sendCmdWithSecureChannel(apduHeader, command);
     }
 
     private void restore() {
-
-        String apduHeader = "80340000";
+        String apduHeader = Commands.RESTORE;
         String command = "";
         String HashPinCode = getHash_Pin_Code();
-
-        if (!useSecureChanel) {
-            int dataLength = HashPinCode.length() / 2;
-            command = command + padLeft(Integer.toHexString(dataLength), 2);
-        }
         command = command + HashPinCode;
-
-        if (!useSecureChanel) {
-            sendCommand(command);
-        } else {
-            sendCmdWithSecureChannel(apduHeader, command);
-        }
-        // sendCmdWithSecureChannel(apduHeader, command);
-
+        sendCmdWithSecureChannel(apduHeader, command);
     }
 
     private void reset() {
-
-        if (!useSecureChanel) {
-            sendCommand("80360000");
-        } else {
-            sendCmdWithSecureChannel("80360000", "");
-        }
-
+        sendCmdWithSecureChannel(Commands.RESET, "");
     }
 
     @Override
@@ -275,47 +284,13 @@ public class MainActivity extends AppCompatActivity implements Listener {
     @Override
     protected void onNewIntent(Intent intent) {
         tag = intent.getParcelableExtra(NfcAdapter.EXTRA_TAG);
-
         Log.d(TAG, "onNewIntent: " + intent.getAction());
 
     }
 
-    // 00A4040006C1C2C3C4C5C6
-    private void sendCommand(String cmd) {
-
-        if (tag != null) {
-
-            try {
-                byte[] first = hexStringToByteArray("00A4040006C1C2C3C4C5C6"); //3rd first cmd
-                byte[] bytes = hexStringToByteArray(cmd);
-                IsoDep techHandle = IsoDep.get(tag);
-                techHandle.connect();
-                techHandle.transceive(first);
-                byte[] resultBytes = techHandle.transceive(bytes);
-                if (resultBytes.length > 10) {
-                    txtResult.setText("result:" + byteArrayToStr(resultBytes));
-                } else {
-                    txtResult.setText("result:" + byteArrayToHexStr(resultBytes));
-                }
-
-                techHandle.close();
-
-                return;
-
-
-            } catch (IOException ex) {
-
-                txtResult.setText("error:" + ex.toString());
-            }
-        } else {
-            txtResult.setText("Can't get nfc tag info!");
-        }
-    }
 
     private static String byteArrayToHexStr(byte[] byteArray) {
-        if (byteArray == null) {
-            return null;
-        }
+        if (byteArray == null) return null;
 
         char[] hexChars = new char[byteArray.length * 2];
         for (int j = 0; j < byteArray.length; j++) {
@@ -326,12 +301,9 @@ public class MainActivity extends AppCompatActivity implements Listener {
         return new String(hexChars);
     }
 
-
     private static String byteArrayToStr(byte[] byteArray) {
 
-        if (byteArray == null) {
-            return null;
-        }
+        if (byteArray == null) return null;
 
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         for (int i = 0; i < byteArray.length; i++) {
@@ -351,8 +323,7 @@ public class MainActivity extends AppCompatActivity implements Listener {
         return str;
     }
 
-
-    public String[] sendSecureInner(String apduHeader, String apduData) {
+    private String[] sendSecureInner(String apduHeader, String apduData) {
         /*
         add salt and checksum, then encrypt origin header & data into a cipher
         real command to be send = 80CCXXXX + cipherData
@@ -405,18 +376,28 @@ public class MainActivity extends AppCompatActivity implements Listener {
         return apduCommand;
     }
 
-    public String resultSecureInner(String apduResult) {
+    private String resultSecureInner(String apduResult) {
         //int blockNumber = apduResult.length;
+
         String rtn = apduResult;
         if (rtn.substring(rtn.length() - 4, rtn.length()).equalsIgnoreCase("9000")) {
             String decrypted = CryptoUtil.decryptAES(secureKey, rtn.substring(0, rtn.length() - 4));
+            String decryptedHash = decrypted.substring(0, 64);
+            String decryptedSalt = decrypted.substring(64, 72);
             String decryptedData = decrypted.substring(72, decrypted.length());
-            rtn = decryptedData;    //hex > string
+
+            // reassemble returnData to origin form
+            rtn = decryptedData + "9000";
         } else if (rtn.substring(rtn.length() - 4, rtn.length()).equalsIgnoreCase("6350")) {
             String decrypted = CryptoUtil.decryptAES(secureKey, rtn.substring(0, rtn.length() - 4));
+            String decryptedHash = decrypted.substring(0, 64);
+            String decryptedSalt = decrypted.substring(64, 72);
             String decryptedData = decrypted.substring(72, decrypted.length());
-            rtn = decryptedData;
+
+            // reassemble returnData to origin form
+            rtn = decryptedData + "6350";
         }
+        System.out.println("result rtn" + rtn);
 
         return rtn;
     }
